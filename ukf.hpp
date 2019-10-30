@@ -9,18 +9,20 @@ class UKF{
 private:
     int nStateDim;    
     double dt; 
-    Eigen::MatrixXd xm, xp;       
-    Eigen::MatrixXd sigmaPoints; 
-    Eigen::MatrixXd P, Q;
+    Eigen::MatrixXd xm, xp, z;       
+    Eigen::MatrixXd sigmaPointsP, sigmaPointsZ; 
+    Eigen::MatrixXd P, Q, R, Pzz, Pxz;
     
     void generateSigmaPoints(const Eigen::MatrixXd& u); 
     void stateFunctionSigmaPoints(const Eigen::MatrixXd& u); 
-    void stateFunction(Eigen::MatrixXd& x, const Eigen::MatrixXd& u); 
+    void stateFunction(Eigen::MatrixXd& x, const Eigen::MatrixXd& u);
+    void measurementFunctionSigmaPoints(); 
+    void measurementFunction(Eigen::MatrixXd& sz);  
 public:
     UKF(); 
     ~UKF(); 
 
-    void priorUpdate();
-    void posterioriUpdate(); 
+    void priorUpdate(const Eigen::MatrixXd& u);
+    void posterioriUpdate(const Eigen::MatrixXd& z); 
 
 };
