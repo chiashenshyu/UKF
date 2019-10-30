@@ -15,14 +15,18 @@ private:
     
     void generateSigmaPoints(const Eigen::MatrixXd& u); 
     void stateFunctionSigmaPoints(const Eigen::MatrixXd& u); 
-    void stateFunction(Eigen::MatrixXd& x, const Eigen::MatrixXd& u);
+    
     void measurementFunctionSigmaPoints(); 
     void measurementFunction(Eigen::MatrixXd& sz);  
+
 public:
     UKF(); 
     ~UKF(); 
 
+    void setInitialCondition(const Eigen::MatrixXd& x);
     void priorUpdate(const Eigen::MatrixXd& u);
     void posterioriUpdate(const Eigen::MatrixXd& z); 
+    void getEstimation(Eigen::MatrixXd& est);
+    void stateFunction(Eigen::MatrixXd& x, const Eigen::MatrixXd& u);
 
 };

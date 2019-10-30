@@ -13,7 +13,7 @@ void UKF::generateSigmaPoints(const Eigen::MatrixXd& u){
 }
 
 void UKF::stateFunctionSigmaPoints(const Eigen::MatrixXd& u){
-    for(int i = 0; i < sigmaPoints.cols(); i++){
+    for(int i = 0; i < sigmaPointsP.cols(); i++){
         Eigen::MatrixXd sx = sigmaPointsP.col(i);
         stateFunction(sx, u);
         sigmaPointsP.col(i) = sx; 
@@ -27,7 +27,7 @@ void UKF::stateFunction(Eigen::MatrixXd& sx, const Eigen::MatrixXd& u){
 }
 
 void UKF::measurementFunctionSigmaPoints(){
-    for(int i = 0; i < sigmaPoints.cols(); i++){
+    for(int i = 0; i < sigmaPointsP.cols(); i++){
         Eigen::MatrixXd sz = sigmaPointsP.col(i); 
         measurementFunction(sz); 
         sigmaPointsZ.col(i) = sz;         
@@ -48,7 +48,7 @@ UKF::UKF(){
     dt = 0.1; 
     nStateDim = 3; 
     sigmaPointsP.resize(nStateDim, nStateDim*2);
-    sigmaPointsP.resize(nStateDim, nStateDim*2);
+    sigmaPointsZ.resize(nStateDim, nStateDim*2);
     xp.resize(nStateDim, 1); 
     xm.resize(nStateDim, 1); 
     P.setIdentity(nStateDim, nStateDim);
@@ -60,23 +60,27 @@ UKF::~UKF(){
 
 }
 
+void UKF::setInitialCondition(const Eigen::MatrixXd& x){
+    xm = x; 
+}
+
 void UKF::priorUpdate(const Eigen::MatrixXd& u){
     generateSigmaPoints(u); 
     xp = sigmaPointsP.rowwise().mean();
     int n = sigmaPointsP.cols();
-    P = Eigen::MatrixXd::Zero(n,n); 
+    P = Eigen::MatrixXd::Zero(nStateDim,nStateDim); 
     for(int i = 0; i < n; i++){
         Eigen::MatrixXd xd = sigmaPointsP.col(i) - xp;
-        P = P + ((xd * xd.transpose()) / 2 / n); 
+        P = P + ((xd * xd.transpose()) / static_cast<double>(2 * n)); 
     }
     P = P + Q; 
 }
 
 void UKF::posterioriUpdate(const Eigen::MatrixXd& z){
     measurementFunctionSigmaPoints(); 
-    zBar = sigmaPointsZ.rowwise().mean(); 
+    Eigen::MatrixXd zBar = sigmaPointsZ.rowwise().mean(); 
     int n = sigmaPointsP.cols(); 
-    Pzz = Eigen::MatrixXd::Zero(n,n); 
+    Pzz = Eigen::MatrixXd::Zero(nStateDim,nStateDim); 
     Pxz = Pzz; 
     for(int i = 0; i < n; i++){
         Eigen::MatrixXd zd = sigmaPointsZ.col(i) - zBar; 
@@ -91,15 +95,42 @@ void UKF::posterioriUpdate(const Eigen::MatrixXd& z){
     P = P - K * Pzz * K.transpose();
 }
 
+void UKF::getEstimation(Eigen::MatrixXd& est){
+    est = xm; 
+}
+
 int main(){
-    Eigen::MatrixXd A(2,3);
-    // A << 4,-1,2, -1,6,0;
-    // cout << "The matrix A is" << endl << A << endl;
-    // A = A * 2; 
-    // cout << "The matrix A is" << endl << A << endl;
-    // cout << A.rowwise().mean() << endl;
-    A = Eigen::MatrixXd::Zero(2,2);
-    A.setIdentity(3,3); 
-    cout << A << endl;
+    bool init = false; 
+    UKF ukf; 
+    Eigen::MatrixXd a(3,1), u(2,1), est(3,1); 
+    a << 0,0,0; 
+    u << 3, M_PI/180*5;
+    ukf.setInitialCondition(a);
+
+    std::vector<double> x, y, estX, estY;
+
+    for(int i = 1; i < 100; i++){
+        if(init) ukf.stateFunction(a, u); 
+        ukf.priorUpdate(u); 
+        ukf.posterioriUpdate(a); 
+        ukf.getEstimation(est);
+        init = true;
+
+        x.push_back(a(0,0)); 
+        y.push_back(a(1,0));
+        estX.push_back(est(0,0));
+        estY.push_back(est(1,0)); 
+
+        cout << "difference in x: " << abs(a(0,0)-est(0,0));
+        cout << ", in y: " << abs(a(1,0)-est(1,0)) << endl;
+        plt::clf();
+        plt::xlim(0,30); 
+        plt::ylim(0,18);
+        plt::plot(x,y, "r*");
+        plt::plot(estX, estY, "bo");
+        plt::pause(0.001); 
+        
+    }
+    plt::show();
     return 0; 
 }
