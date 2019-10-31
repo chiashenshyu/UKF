@@ -20,12 +20,6 @@ void UKF::stateFunctionSigmaPoints(const Eigen::MatrixXd& u){
     }
 }
 
-void UKF::stateFunction(Eigen::MatrixXd& sx, const Eigen::MatrixXd& u){
-    Eigen::MatrixXd B(3,2);
-    B << cos(sx(2)),0, sin(sx(2)),0, 0,1;
-    sx = sx + B * u * dt; 
-}
-
 void UKF::measurementFunctionSigmaPoints(){
     for(int i = 0; i < sigmaPointsP.cols(); i++){
         Eigen::MatrixXd sz = sigmaPointsP.col(i); 
@@ -52,8 +46,10 @@ UKF::UKF(){
     xp.resize(nStateDim, 1); 
     xm.resize(nStateDim, 1); 
     P.setIdentity(nStateDim, nStateDim);
-    Q.setIdentity(nStateDim, nStateDim);  
+    Q.setIdentity(nStateDim, nStateDim); 
+    Q = Q * 0.5; 
     R.setIdentity(nStateDim, nStateDim);
+    R = R * 0.5; 
 }
 
 UKF::~UKF(){
@@ -61,7 +57,11 @@ UKF::~UKF(){
 }
 
 void UKF::setInitialCondition(const Eigen::MatrixXd& x){
-    xm = x; 
+    std::default_random_engine gen(time(0)); 
+    std::normal_distribution<double> d(0.0,1.0);
+    for(int i = 0; i < x.rows(); i++){
+        xm(i,0) = x(i,0) + d(gen);
+    }
 }
 
 void UKF::priorUpdate(const Eigen::MatrixXd& u){
@@ -85,8 +85,8 @@ void UKF::posterioriUpdate(const Eigen::MatrixXd& z){
     for(int i = 0; i < n; i++){
         Eigen::MatrixXd zd = sigmaPointsZ.col(i) - zBar; 
         Eigen::MatrixXd xd = sigmaPointsP.col(i) - xp;
-        Pzz = Pzz + ((zd * zd.transpose()) / 2 / n);
-        Pxz = Pxz + ((xd * zd.transpose()) / 2 / n);
+        Pzz = Pzz + ((zd * zd.transpose()) / static_cast<double>(2 * n));
+        Pxz = Pxz + ((xd * zd.transpose()) / static_cast<double>(2 * n));
     }
     Pzz = Pzz + R;  
     Eigen::MatrixXd K = Pxz * Pzz.inverse(); 
@@ -99,6 +99,15 @@ void UKF::getEstimation(Eigen::MatrixXd& est){
     est = xm; 
 }
 
+void UKF::stateFunction(Eigen::MatrixXd& sx, const Eigen::MatrixXd& u){
+    Eigen::MatrixXd B(3,2);
+    B << cos(sx(2)),0, sin(sx(2)),0, 0,1;
+    sx = sx + B * u * dt; 
+}
+
+/**
+ * main
+ */
 int main(){
     bool init = false; 
     UKF ukf; 
@@ -109,12 +118,11 @@ int main(){
 
     std::vector<double> x, y, estX, estY;
 
-    for(int i = 1; i < 100; i++){
-        if(init) ukf.stateFunction(a, u); 
+    for(int i = 1; i < 1000; i++){
+        ukf.stateFunction(a, u); 
         ukf.priorUpdate(u); 
         ukf.posterioriUpdate(a); 
         ukf.getEstimation(est);
-        init = true;
 
         x.push_back(a(0,0)); 
         y.push_back(a(1,0));
@@ -122,11 +130,14 @@ int main(){
         estY.push_back(est(1,0)); 
 
         cout << "difference in x: " << abs(a(0,0)-est(0,0));
-        cout << ", in y: " << abs(a(1,0)-est(1,0)) << endl;
+        cout << ", in y: " << abs(a(1,0)-est(1,0));
+        cout << ", total: " << sqrt(pow(abs(a(1,0)-est(1,0)),2)+pow(abs(a(0,0)-est(0,0)),2));
+        cout << endl;
         plt::clf();
-        plt::xlim(0,30); 
-        plt::ylim(0,18);
+        // plt::xlim(-30,30); 
+        // plt::ylim(-20,20);
         plt::plot(x,y, "r*");
+        plt::grid(true);
         plt::plot(estX, estY, "bo");
         plt::pause(0.001); 
         
